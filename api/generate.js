@@ -2,43 +2,38 @@ export default async function handler(req, res) {
   const { formato, tipo, tema } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) {
-    return res.status(500).json({ content: "Error: No has configurado la clave GEMINI_API_KEY en Vercel." });
-  }
+  if (!apiKey) return res.status(500).json({ content: "Error: No hay API Key." });
 
-  // CAMBIO CLAVE: Usamos la versión 'v1' (no beta) y el modelo específico 'gemini-1.5-flash-latest'
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // Lista de modelos a probar en orden de compatibilidad
+  const modelos = [
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro",
+    "gemini-pro"
+  ];
 
-  const payload = {
-    contents: [{
-      parts: [{
-        text: `Eres un experto en farmacia y redes sociales. Crea un post para Instagram en español. 
-        Formato: ${formato}. 
-        Tipo: ${tipo}. 
-        Tema: ${tema || 'Salud general'}.
-        Usa emojis y hashtags.`
-      }]
-    }]
-  };
+  for (const modelName of modelos) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Eres farmacéutico. Crea un ${formato} de tipo ${tipo} sobre ${tema || 'salud'}. Usa emojis.` }] }]
+        })
+      });
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      const data = await response.json();
 
-    const data = await response.json();
-
-    // Si Google devuelve un error, lo mostramos para saber qué pasa
-    if (data.error) {
-      return res.status(500).json({ content: "Error de Google: " + data.error.message });
+      // Si este modelo funciona, devolvemos la respuesta y paramos
+      if (data.candidates && data.candidates[0]) {
+        return res.status(200).json({ content: data.candidates[0].content.parts[0].text });
+      }
+    } catch (e) {
+      console.log(`Fallo con ${modelName}, probando el siguiente...`);
     }
-
-    const textoGenerado = data.candidates[0].content.parts[0].text;
-    res.status(200).json({ content: textoGenerado });
-
-  } catch (error) {
-    res.status(500).json({ content: "Error de conexión: " + error.message });
   }
+
+  // Si llegamos aquí es que ninguno funcionó
+  res.status(500).json({ content: "Error: Google no reconoce los modelos en tu región. Revisa si aceptaste los términos en Google AI Studio." });
 }
