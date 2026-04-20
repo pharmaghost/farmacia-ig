@@ -3,20 +3,20 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ content: "Error: No hay API Key configurada." });
+    return res.status(500).json({ content: "Error: No has configurado la clave GEMINI_API_KEY en Vercel." });
   }
 
-  // Usamos el modelo 'gemini-pro', que es el más compatible universalmente
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  // CAMBIO CLAVE: Usamos la versión 'v1' (no beta) y el modelo específico 'gemini-1.5-flash-latest'
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{
       parts: [{
-        text: `Eres un farmacéutico experto en marketing. Escribe un post de Instagram en español. 
+        text: `Eres un experto en farmacia y redes sociales. Crea un post para Instagram en español. 
         Formato: ${formato}. 
-        Tipo de contenido: ${tipo}. 
-        Tema específico: ${tema || 'Salud y bienestar'}.
-        Usa emojis y hashtags de farmacia.`
+        Tipo: ${tipo}. 
+        Tema: ${tema || 'Salud general'}.
+        Usa emojis y hashtags.`
       }]
     }]
   };
@@ -30,12 +30,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    // Si Google devuelve un error, lo mostramos para saber qué pasa
     if (data.error) {
       return res.status(500).json({ content: "Error de Google: " + data.error.message });
-    }
-
-    if (!data.candidates || !data.candidates[0]) {
-      return res.status(500).json({ content: "Google no pudo generar una respuesta. Intenta con otro tema." });
     }
 
     const textoGenerado = data.candidates[0].content.parts[0].text;
